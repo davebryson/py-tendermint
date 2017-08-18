@@ -71,7 +71,7 @@ app.run()
 ```
 
 Vanilla hides some of the repetitive setup for you by providing:
-* Patricia Trie back by persistent storage
+* A Patricia Trie backed by persistent storage
 * Common Transaction model based on RLP
 * RPC Client
 * Accounts
