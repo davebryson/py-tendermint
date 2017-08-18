@@ -2,7 +2,7 @@
 set -e
 
 APPROOT=`pwd`
-APP=$APPROOT/counter.py
+APP=$APPROOT/examples/counter.py
 
 ROOT=$GOPATH/src/github.com/tendermint/abci/tests/test_app
 cd $ROOT

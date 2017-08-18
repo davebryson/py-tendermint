@@ -1,24 +1,9 @@
-import crayons
 from .wire import *
 from .messages import *
 from .application import BaseApplication
 from .types_pb2 import Request
 
 from gevent.server import StreamServer
-
-## Some colored logging messages...
-def info_message(txt):
-    print(" >> {}".format(txt))
-
-def ok_message(txt):
-    print(" >> {}".format(crayons.green(txt)))
-
-def err_message(txt):
-    print(" >> {}".format(crayons.red(txt)))
-
-def warn_message(txt):
-    print(" >> {}".format(crayons.yellow(txt)))
-
 
 class ProtocolHandler(object):
 
@@ -94,13 +79,13 @@ class ABCIServer(object):
 
     def start(self):
         self.server.start()
-        ok_message("ABCIServer started on port: {}".format(self.port))
+        print(" ABCIServer started on port: {}".format(self.port))
 
     def stop(self):
         self.server.stop()
 
     def __handle_connection(self, socket, address):
-        ok_message('... connection from: {}:{} ...'.format(address[0], address[1]))
+        print(' ... connection from: {}:{} ...'.format(address[0], address[1]))
         while True:
             inbound = socket.recv(1024)
             msg_length = len(inbound)
@@ -118,6 +103,6 @@ class ABCIServer(object):
                     response = self.protocol.process(req_type, req)
                     socket.sendall(response)
                 except Exception as e:
-                    err_message(crayons.red(e))
+                    print(e)
 
         socket.close()

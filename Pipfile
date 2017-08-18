@@ -12,7 +12,6 @@ trie = "*"
 pynacl = "*"
 protobuf = "*"
 gevent = "*"
-crayons = "*"
 colorlog = "*"
 
 [requires]
