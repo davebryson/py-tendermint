@@ -13,8 +13,10 @@ from .abci.application import Result
 
 from .transactions import Transaction
 from .state import State, StateCache, Storage
-from .utils import str_to_bytes, int_to_big_endian
+from .utils import str_to_bytes, int_to_big_endian, is_hex, from_hex
 
+import gevent
+import signal
 from gevent.event import Event
 from gevent.server import StreamServer
 
@@ -22,7 +24,9 @@ def create_logger(app):
     logger = logging.getLogger('vanilla.app')
     handler = logging.StreamHandler()
 
-    if app.debug and logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
+
+    if app.debug:
         logger.setLevel(logging.DEBUG)
 
     formatter = colorlog.ColoredFormatter(
@@ -45,7 +49,6 @@ def create_logger(app):
     return logger
 
 def setup_app_state(root_dir):
-    log.debug("attempting to setup from tendermint dir: {}".format(root_dir))
 
     if not os.path.exists(root_dir):
         msg = "Cannot find tendermint directory {}".format(root_dir)
@@ -65,8 +68,10 @@ def setup_app_state(root_dir):
 
     state, is_new  = State.load_state(dbname)
 
+    state.chain_id = str_to_bytes(state.chain_id)
+    genesis_chain_id = str_to_bytes(genesis_chain_id)
+
     if state.chain_id == genesis_chain_id:
-        log.debug('using existing chain: {}'.format(genesis_chain_id))
         return (state, False)
 
     if not is_new and state.chain_id != genesis_chain_id:
@@ -76,8 +81,8 @@ def setup_app_state(root_dir):
         )
 
     if is_new:
-        log.debug('first run with chainid: {}'.format(genesis_chain_id))
         state.chain_id = genesis_chain_id
+        state.save()
 
     return (state, is_new)
 
@@ -93,7 +98,7 @@ class VanillaApp(object):
     version = "0.1"
 
     # Debug loglevel
-    debug = False
+    debug = True
 
 
     def __init__(self, homedir, port=46658):
@@ -132,6 +137,8 @@ class VanillaApp(object):
 
         # Logger
         self.log = create_logger(self)
+
+        self.log.info("using tendermint dir: {}".format(self.rootdir))
 
     def __check_for_param(self,func, required_params):
         """ Checks that any provided application functions contain the required
@@ -215,12 +222,19 @@ class VanillaApp(object):
         result = ResponseInfo()
         result.last_block_height = self._storage.state.last_block_height
         result.last_block_app_hash = self._storage.state.last_block_hash
-        r.data = "Vanilla app v{}".format(self.version)
-        r.version = self.version
+        result.data = "Vanilla app v{}".format(self.version)
+        result.version = self.version
         return to_response_info(result)
 
+    def __decode_incoming_tx(self, rawtx):
+        self.log.debug("Raw tx: {}".format(rawtx))
+        if is_hex(rawtx):
+            rawtx = from_hex(rawtx)
+
+        return Transaction.decode(rawtx)
+
     def check_tx(self, req):
-        decoded_tx = Transaction.decode(req.check_tx.tx)
+        decoded_tx = self.__decode_incoming_tx(req.check_tx.tx)
         result = Result.ok()
 
         if self._validate_tx:
@@ -233,7 +247,7 @@ class VanillaApp(object):
         return to_response_check_tx(result.code, result.data, result.log)
 
     def deliver_tx(self, req):
-        tx = Transaction.decode(req.deliver_tx.tx)
+        tx = self.__decode_incoming_tx(req.deliver_tx.tx)
         result = Result.error(code=InternalError, log="No matching Tx handler")
 
         if tx.call in self._process_tx_handlers:
@@ -284,7 +298,7 @@ class VanillaApp(object):
 
     # Server handler.  Receives message from tendermint and process accordingly
     def __handle_connection(self, socket, address):
-        self.log.info('connection from: {}:{}'.format(address[0], address[1]))
+        self.log.info('received connection from: {}:{}'.format(address[0], address[1]))
         while True:
             inbound = socket.recv(1024)
             msg_length = len(inbound)
@@ -297,6 +311,7 @@ class VanillaApp(object):
                     if data_read == 0: return
 
                     req_type = req.WhichOneof("value")
+                    self.log.debug('request type: {}'.format(req_type))
                     result = self.__handle_abci_call(req_type, req)
                     response = write_message(result)
 
@@ -323,7 +338,7 @@ class VanillaApp(object):
         if is_new and self._on_init:
             self._on_init(self._storage)
 
-        self.server = StreamServer(('0.0.0.0', port), handle=self.__handle_connection)
+        self.server = StreamServer(('0.0.0.0', self.port), handle=self.__handle_connection)
         self.server.start()
         self.log.info('VanillaApp started on port: {}'.format(self.port))
 

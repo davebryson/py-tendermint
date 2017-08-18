@@ -1,6 +1,7 @@
 import os
 import os.path
 from pathlib import Path
+import collections
 
 from math import ceil
 from sha3 import keccak_256
@@ -15,9 +16,58 @@ def home_dir(*paths):
     home = str(Path.home())
     return os.path.join(home,*paths)
 
-def make_db_name(base, chainid):
-    return home_dir(base, "{}.vdb".format(chainid))
+def is_integer(value):
+    return isinstance(value, int) and not isinstance(value, bool)
 
+def is_bytes(value):
+    return isinstance(value, (bytes, bytearray))
+
+def is_string(value):
+    return isinstance(value, (str,bytes, bytearray))
+
+def is_text(value):
+    return isinstance(value, str)
+
+def is_boolean(value):
+    return isinstance(value, bool)
+
+def is_dict(obj):
+    return isinstance(obj, collections.Mapping)
+
+def is_list_like(obj):
+    return not is_string(obj) and isinstance(obj, collections.Sequence)
+
+def force_text(value):
+    if is_string(value):
+        return value
+    elif is_bytes(value):
+        return bytes_to_str(value)
+    else:
+        raise TypeError("Unsupported type: {0}".format(type(value)))
+
+def obj_to_bytes(obj):
+    if is_string(obj):
+        return str_to_bytes(obj)
+    elif is_dict(obj):
+        return {
+            k: obj_to_bytes(v) for k, v in obj.items()
+        }
+    elif is_list_like(obj):
+        return type(obj)(obj_to_bytes(v) for v in obj)
+    else:
+        return obj
+
+def obj_to_str(obj):
+    if is_string(obj):
+        return bytes_to_str(obj)
+    elif is_dict(obj):
+        return {
+            k: obj_to_str(v) for k, v in obj.items()
+        }
+    elif is_list_like(obj):
+        return type(obj)(obj_to_str(v) for v in obj)
+    else:
+        return obj
 
 def int_to_big_endian(value):
     byte_length = max(ceil(value.bit_length() / 8), 1)

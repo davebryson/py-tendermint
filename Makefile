@@ -2,9 +2,15 @@
 protobuf:
 	protoc -I=abci --python_out=abci vanilla/abci/types.proto
 
-test:
+abci-test:
 	sh ./compat-test.sh
 
-reset-test:
+rte:
 	rm -Rf ~/.vanilla
 	tendermint --home ~/.vanilla init
+
+run-test-node:
+	tendermint --home ~/.vanilla node
+
+dev-mode:
+	pip install --editable .

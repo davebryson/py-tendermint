@@ -2,7 +2,7 @@
  Using sqlite3 for key/value store...what!?  Here's why:
  existing tech (leveldb, codernitydb, etc...) either doesn't
  support windows, not ported to Python 3, or both. This approach
- gives the most flexibility for now...and it works.
+ gives the most flexibility for now ... and it works.
 """
 import sqlite3
 import os.path

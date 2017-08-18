@@ -4,6 +4,7 @@ from rlp.sedes import big_endian_int, binary
 
 from vanilla.transactions import Transaction
 from vanilla.keys import Key
+from vanilla.utils import to_hex, from_hex, is_hex
 
 
 class Params1(rlp.Serializable):
@@ -134,7 +135,7 @@ def test_decoding_with_no_params():
 
 def test_decoding_with_wrong_params():
     p1 = Params1(20, 'dave')
-    
+
     t1 = Transaction()
     t1.nonce = 2
     t1.value = 11
@@ -152,3 +153,18 @@ def test_decoding_with_wrong_params():
     with pytest.raises(Exception):
         pback = tback.decode_params(Params3)
         assert(pback)
+
+def test_format_convertions():
+    t1 = Transaction()
+    t1.nonce = 2
+    t1.value = 11
+    t1.call = 'CREATE'
+
+    raw = t1.encode()
+    hexvalue = to_hex(raw)
+
+    assert(is_hex(hexvalue))
+
+    tback = Transaction.decode(from_hex(hexvalue))
+    assert(2 == tback.nonce)
+    assert(11 == tback.value)

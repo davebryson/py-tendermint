@@ -20,6 +20,8 @@ setup(
         'protobuf>=3.4.0',
         'gevent>=1.2.2',
         'colorlog>=3.0.1',
+        'requests>=2.18.4',
+        'click>=6.7',
     ],
     extras_require={
         'dev': [

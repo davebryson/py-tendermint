@@ -9,7 +9,8 @@ from vanilla.db import VanillaDB
 from .accounts import Account
 
 # sha3(rlp(b''))
-BLANK_ROOT_HASH = b'V\xe8\x1f\x17\x1b\xccU\xa6\xff\x83E\xe6\x92\xc0\xf8n\x5bH\xe0\x1b\x99l\xad\xc0\x01b/\xb5\xe3c\xb4!'  # noqa: E501
+#BLANK_ROOT_HASH = b'V\xe8\x1f\x17\x1b\xccU\xa6\xff\x83E\xe6\x92\xc0\xf8n\x5bH\xe0\x1b\x99l\xad\xc0\x01b/\xb5\xe3c\xb4!'  # noqa: E501
+BLANK_ROOT_HASH = b''
 CHAIN_METADATA_KEY = b'vanilla_meta_data'
 
 def validate_address(value):

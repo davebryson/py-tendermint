@@ -1,35 +1,52 @@
 
-from vanilla.utils import home_dir
+from vanilla.utils import home_dir, int_to_big_endian, big_endian_to_int
 from vanilla import VanillaApp, Transaction, Result
 
+
+DATA_KEY=b'current_count'
+INITIAL_COUNT = int_to_big_endian(1)
+
+def _increment_and_convert(bigint):
+    v = big_endian_to_int(bigint)
+    v += 1
+    return int_to_big_endian(v)
 
 # Setup the application. Pointing it to the same root dir used by Tendermint
 # in this example, we are using ~/.vanilla, which means we set a different
 # root_dir when running 'init'.  'tendermint init --root ~/.vanilla'
 app = VanillaApp(home_dir('.vanilla'))
+app.debug = True
 
 # Called only once, on the first initialization of the application
-# this is a good place to put stuff in state like default accounts, etc...
+# this is a good place to put stuff in state like default accounts, storage, etc...
 @app.on_initialize()
-def create_default_accounts(storage):
-    pass
+def create_count(storage):
+    storage.confirmed.put_data(DATA_KEY, INITIAL_COUNT)
+    storage.state.save()
 
 # Called per incoming tx (used in abci.check_tx).  Will validate Tx based
 # on logic
 @app.validate_transaction()
-def check_tx(tx, storage):
-    pass
+def run_check_tx(tx, storage):
+    stored_value = storage.unconfirmed.get_data(DATA_KEY)
+    if tx.value != big_endian_to_int(stored_value):
+        return Result.error(log="Don't match!")
 
+    next_value = _increment_and_convert(stored_value)
+    storage.unconfirmed.put_data(DATA_KEY, next_value)
+    return Result.ok()
 
-@app.process_transaction('create')
-def create_one(tx, storage):
-    pass
-
+@app.process_transaction('counter')
+def increment_the_count(tx, storage):
+    stored_value = storage.confirmed.get_data(DATA_KEY)
+    next_value = _increment_and_convert(stored_value)
+    storage.confirmed.put_data(DATA_KEY,next_value)
+    return Result.ok()
 
 @app.querystate('nonce')
 def get_nonce(params, storage):
-    pass
+    stored_value = storage.confirmed.get_data(DATA_KEY)
+    return Result.ok(data=stored_value)
 
 
-if __name__ == '__main__':
-    app.run()
+app.run()
