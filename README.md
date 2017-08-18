@@ -5,7 +5,7 @@
 Inspired by Flask and the recent work on Tendermint's Quark SDK, Vanilla makes
 it easy to quickly prototype a Tendermint ABCI application.
 
-**NOTE:** *this is still very alpha stuff*
+**NOTE:** *this is still very alpha stuff* DO NOT USE IN PRODUCTION.
 
 Here's what a simple *stateful* counter app may look like:
 
