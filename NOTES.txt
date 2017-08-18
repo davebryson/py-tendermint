@@ -1,0 +1,6 @@
+
+
+- Using SQLite3 for KV store. Why?:
+   - CodernityDB does not support Python 3
+   - Leveldb does not work on Windows
+   - Not many other supported options
