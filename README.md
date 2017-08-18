@@ -1,11 +1,11 @@
 # Vanilla
 
-A Python microframework for building blockchain applications with Tendermint.
+**A Python microframework for building blockchain applications with Tendermint**
 
 Inspired by Flask and the recent work on Tendermint's Quark SDK, Vanilla makes
 it easy to quickly prototype a Tendermint ABCI application.
 
-**NOTE:** this is still very alpha stuff.
+**NOTE:** *this is still very alpha stuff*
 
 Here's what a simple *stateful* counter app may look like:
 
@@ -37,7 +37,7 @@ def create_count(storage):
     storage.state.save()
 
 # Called per incoming tx (used in abci.check_tx).
-# Put your transaction validation logic here.  Transaction passing this test
+# Put your transaction validation logic here.  Transactions passing this test
 # are placed in the mempool
 @app.validate_transaction()
 def run_check_tx(tx, storage):
@@ -49,7 +49,10 @@ def run_check_tx(tx, storage):
     storage.unconfirmed.put_data(DATA_KEY, next_value)
     return Result.ok()
 
-# Add more or more of these.  This is your apps business logic.
+# Add one or more of these.  This is your apps business logic.
+# 'counter' passed to the decorator, is like routes in a web framework.
+# Your transaction includes a 'call' field with this value and Vanilla
+# maps the transaction to the appropriate handler.
 @app.process_transaction('counter')
 def increment_the_count(tx, storage):
     stored_value = storage.confirmed.get_data(DATA_KEY)
@@ -67,7 +70,7 @@ def get_nonce(params, storage):
 app.run()
 ```
 
-Vanilla hides some of the repetitive setup from you by providing:
+Vanilla hides some of the repetitive setup for you by providing:
 * Patricia Trie back by persistent storage
 * Common Transaction model based on RLP
 * RPC Client
@@ -75,7 +78,7 @@ Vanilla hides some of the repetitive setup from you by providing:
 * ed25519 Keys
 
 However, if you want to stay closer to ABCI *metal* you can still use the
-ABCI BaseApplication in the *abci* package to implement your logic directly. See
+ABCI BaseApplication in the `abci` package to implement your logic directly. See
 the 'counter.py' app in the example folder.
 
 ### Requirements
