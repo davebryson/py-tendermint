@@ -2,6 +2,7 @@
 import click
 from vanilla import Transaction
 from vanilla.client import RpcClient
+from vanilla.utils import from_hex
 
 rpc = RpcClient()
 
@@ -27,7 +28,7 @@ def send_count(value):
 
 @cli.command()
 def view_count():
-    result = rpc.query('nonce','')
+    result = rpc.query('/data','current_count')
     print(result['response']['value'])
 
 if __name__ == '__main__':

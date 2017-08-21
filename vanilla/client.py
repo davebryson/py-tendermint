@@ -27,11 +27,12 @@ class RpcClient(object):
         }
 
     def call(self, method, params):
+        value = str(next(self.request_counter))
         encoded = json.dumps({
             "jsonrpc": "2.0",
             "method": method,
             "params": params or [],
-            "id": str(next(self.request_counter)),
+            "id": value,
         })
 
         r = self.session.post(
@@ -41,8 +42,13 @@ class RpcClient(object):
             timeout=3
         )
 
-        r.raise_for_status()
+        #try:
+        #    r.raise_for_status()
+        #except Exception as er:
+        #    print(er)
+
         response = r.content
+
 
         if is_string(response):
             response = json.loads(bytes_to_str(response))
@@ -99,7 +105,8 @@ class RpcClient(object):
         return self.call('commit', [height])
 
     def query(self, path, data, proof=False):
-        return self.call('abci_query', [path, data, proof])
+        d = to_hex(data)
+        return self.call('abci_query', [path, d[2:], proof])
 
     def _send_transaction(self, name, tx):
         if is_bytes(tx):
@@ -118,5 +125,5 @@ class RpcClient(object):
     def get_tx(self, h, proof=False):
         #txhash = base64.b64encode(str_to_bytes('0x'+h))
         #return self.call('tx', [txhash,proof])
-        # this is a mess trying to make this work!
+        # this is a mess - trying to make this work!
         pass

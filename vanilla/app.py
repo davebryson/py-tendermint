@@ -3,7 +3,6 @@ import logging, colorlog
 
 import rlp
 import json
-#import crayons
 import os.path
 
 from .abci.wire import *
@@ -86,9 +85,7 @@ def setup_app_state(root_dir):
 
     return (state, is_new)
 
-
 class VanillaApp(object):
-
     # Enable for testing.  Uses in-memory (temp) storage and doesn't
     # start the server. 'mock_test_state' is for assigning abitrary
     # state for testing without using storage
@@ -100,12 +97,8 @@ class VanillaApp(object):
     # Debug loglevel
     debug = True
 
-
     def __init__(self, homedir, port=46658):
-
         # This should match the basedir used by tendermint
-        #info_message("using tendermint dir at: {}".format(homedir))
-
         # Directory for storing application state db.
         # This must be the same as the Tendermint home dir
         self.rootdir = homedir
@@ -173,7 +166,7 @@ class VanillaApp(object):
             return f
         return decorator
 
-    def process_transaction(self, rule):
+    def on_transaction(self, rule):
         """ A decorator for functions that implement core business logic and
         can alter application state.  The provided function MUST accept a 2
         params 'tx' and 'storage'. The 'rule' must match the value set in Tx.call
@@ -184,17 +177,6 @@ class VanillaApp(object):
         def decorator(f):
             self.__check_for_param(f,2)
             self._process_tx_handlers[str_to_bytes(rule)] = f
-            return f
-        return decorator
-
-    def querystate(self, rule):
-        """Handlers to query the state of the application.  User has access to
-        both confirmed and unconfirmed cache via the storage class passed as a
-        parameter to decorated functions.
-        """
-        def decorator(f):
-            self.__check_for_param(f,2)
-            self._query_handlers[str_to_bytes(rule)] = f
             return f
         return decorator
 
@@ -259,21 +241,51 @@ class VanillaApp(object):
 
         return to_response_deliver_tx(result.code, result.data, result.log)
 
+    def __format_query_data(self, value):
+        if isinstance(value, int):
+            return int_to_big_endian(value)
+        else:
+            return value
+
     def query(self, req):
+        self.log.debug("got the query {}".format(req))
+        # path
         key = str_to_bytes(req.query.path)
         searchvalue = req.query.data
 
-        # default response
+        if key not in [b'/data', b'/check_nonce', b'/balance', b'/pubkey']:
+            self.log.error("bad path: {}".format(key))
+            resp = ResponseQuery(code=UnknownRequest, value=b'unrecognized path')
+            return to_response_query(resp)
+
+        if not searchvalue:
+            self.log.error("Missing key value")
+            resp = ResponseQuery(code=Error, value=b'missing key value')
+            return to_response_query(resp)
+
+        # Default response
         resp = ResponseQuery(code=OK, value=b'')
-        if key in self._query_handlers:
-            result = self._query_handlers[key](searchvalue,self._storage)
-            if result:
-                resp.code = result.code
-                # Can't send numbers in the value field, they must be bytes
-                if isinstance(result.data, int):
-                    result.value = int_to_big_endian(result.data)
-                else:
-                    resp.value = result.data
+
+        # Default path
+        if key == b'/data':
+            # Query the data store
+            data = self._storage.confirmed.get_data(searchvalue)
+            resp.value = self.__format_query_data(data)
+
+        # Used for validation
+        if key == b'/check_nonce':
+            # Query account in the unconfirmed cache
+            acct  = self._storage.unconfirmed.get_account(searchvalue)
+            resp.value = self.__format_query_data(acct.nonce)
+
+        if key == b'/balance':
+            acct = self._storage.confirmed.get_account(searchvalue)
+            resp.value = self.__format_query_data(acct.balance)
+
+        if key == b'/pubkey':
+            acct = self._storage.confirmed.get_account(searchvalue)
+            resp.value = self.__format_query_data(acct.pubkey)
+
         return to_response_query(resp)
 
     def commit(self, req):
@@ -290,7 +302,9 @@ class VanillaApp(object):
         return to_response_end_block(ResponseEndBlock())
 
     def init_chain(self, validators):
-        #self.app.init_chain(validators)
+        # TODO:  This is where setup app should be!!
+        # But it appears it's not being called by ABCI
+        self.log.debug("INIT_CHAIN: {}".format(validators))
         return to_response_init_chain()
 
     def no_match(self, req):
@@ -311,12 +325,12 @@ class VanillaApp(object):
                     if data_read == 0: return
 
                     req_type = req.WhichOneof("value")
-                    self.log.debug('request type: {}'.format(req_type))
+                    #self.log.debug('request type: {}'.format(req_type))
                     result = self.__handle_abci_call(req_type, req)
                     response = write_message(result)
 
                     socket.sendall(response)
-                except Exception as e:
+                except TypeError as e:
                     self.log.error(e)
 
         socket.close()

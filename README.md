@@ -7,11 +7,11 @@ it easy to quickly prototype a Tendermint ABCI application.
 
 **NOTE:** *this is still very alpha stuff* DO NOT USE IN PRODUCTION.
 
-Here's what a simple *stateful* counter app may look like:
+Here's what a simple *stateful* counter app might look like:
 
 ```python
-from vanilla.utils import home_dir, int_to_big_endian, big_endian_to_int
 from vanilla import VanillaApp, Transaction, Result
+from vanilla.utils import home_dir, int_to_big_endian, big_endian_to_int
 
 # Some simple 'helpers' for the app
 DATA_KEY=b'current_count'
@@ -21,7 +21,6 @@ def _increment_and_convert(bigint):
     v = big_endian_to_int(bigint)
     v += 1
     return int_to_big_endian(v)
-
 
 # Setup the application. Pointing it to the same root dir used by Tendermint
 # in this example, we are using ~/.vanilla, which means we set a different
@@ -37,8 +36,9 @@ def create_count(storage):
     storage.state.save()
 
 # Called per incoming tx (used in abci.check_tx).
-# Put your transaction validation logic here.  Transactions passing this test
-# are placed in the mempool
+# Put your transaction validation logic here.  Transaction passing this test
+# are placed in the mempool.  If you don't specify this callback, all Tx pass
+# by default
 @app.validate_transaction()
 def run_check_tx(tx, storage):
     stored_value = storage.unconfirmed.get_data(DATA_KEY)
@@ -49,26 +49,19 @@ def run_check_tx(tx, storage):
     storage.unconfirmed.put_data(DATA_KEY, next_value)
     return Result.ok()
 
-# Add one or more of these.  This is your apps business logic.
-# 'counter' passed to the decorator, is like routes in a web framework.
-# Your transaction includes a 'call' field with this value and Vanilla
-# maps the transaction to the appropriate handler.
-@app.process_transaction('counter')
+# Add more or more of these.  This is your apps business logic.
+@app.on_transaction('counter')
 def increment_the_count(tx, storage):
     stored_value = storage.confirmed.get_data(DATA_KEY)
     next_value = _increment_and_convert(stored_value)
     storage.confirmed.put_data(DATA_KEY,next_value)
     return Result.ok()
 
-# Add one or more of these to define queries to application state
-@app.querystate('nonce')
-def get_nonce(params, storage):
-    stored_value = storage.confirmed.get_data(DATA_KEY)
-    return Result.ok(data=stored_value)
-
 # Fire it up!
 app.run()
 ```
+
+*This example is automatically backed by a Merkle Tree and persistent storage of the application state.*
 
 Vanilla hides some of the repetitive setup for you by providing:
 * A Patricia Trie backed by persistent storage

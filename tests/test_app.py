@@ -64,12 +64,12 @@ def test_tx_handler_decorator():
     #app.test_mode = True
 
     with pytest.raises(TypeError, message="The hello function is missing the 2 required param(s)"):
-        @app.process_transaction('transfer')
+        @app.on_transaction('transfer')
         def hello(tx):
             pass
 
     with pytest.raises(TypeError, message="Missing call name for the Tx handler"):
-        @app.process_transaction()
+        @app.on_transaction()
         def hello(tx):
             pass
 
@@ -78,7 +78,7 @@ def test_tx_handler_decorator():
     t.call = 'CREATE'
     raw = t.encode()
 
-    @app.process_transaction("NO MATCH HERE")
+    @app.on_transaction("NO MATCH HERE")
     def hello(tx, storage):
         pass
 
@@ -89,7 +89,7 @@ def test_tx_handler_decorator():
 
 
     # test it errors if the handler doesn't return an result
-    @app.process_transaction('CREATE')
+    @app.on_transaction('CREATE')
     def hello(tx, storage):
         pass
 
@@ -100,7 +100,7 @@ def test_tx_handler_decorator():
 
 
     # does it actually work?
-    @app.process_transaction('CREATE')
+    @app.on_transaction('CREATE')
     def do_create(tx, storage):
         return Result.ok(log="peachykeen")
 
@@ -151,13 +151,13 @@ def test_quasi_flow():
             return Result.ok()
         return Result.error(code=BADNONCE)
 
-    @app.process_transaction('add')
+    @app.on_transaction('add')
     def add_values(tx, storage):
         p = tx.decode_params(Params)
         value = p.x + p.y
         return Result.ok(data=str(value))
 
-    @app.process_transaction('sub')
+    @app.on_transaction('sub')
     def sub_values(tx, storage):
         p = tx.decode_params(Params)
         value = p.x - p.y
