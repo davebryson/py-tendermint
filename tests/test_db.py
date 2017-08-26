@@ -4,8 +4,6 @@ from vanilla.db import VanillaDB
 from vanilla.utils import home_dir
 
 def test_database():
-    #home = str(Path.home())
-    #dbfile = os.path.join(home,'temp', 'test.db')
     dbfile = home_dir('temp', 'test.db')
     db = VanillaDB(dbfile)
 

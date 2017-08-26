@@ -4,12 +4,10 @@ from trie import Trie
 from trie.db.memory import MemoryDB
 from rlp.sedes import big_endian_int, binary
 
-from .utils import keccak,int_to_big_endian
-from vanilla.db import VanillaDB
+from .db import VanillaDB
 from .accounts import Account
+from .utils import keccak,int_to_big_endian
 
-# sha3(rlp(b''))
-#BLANK_ROOT_HASH = b'V\xe8\x1f\x17\x1b\xccU\xa6\xff\x83E\xe6\x92\xc0\xf8n\x5bH\xe0\x1b\x99l\xad\xc0\x01b/\xb5\xe3c\xb4!'  # noqa: E501
 BLANK_ROOT_HASH = b''
 CHAIN_METADATA_KEY = b'vanilla_meta_data'
 
@@ -20,6 +18,15 @@ def validate_address(value):
 def validate_is_bytes(value):
     if not isinstance(value, bytes):
         raise TypeError("Value must be a byte string.  Got: {0}".format(type(value)))
+
+class chainMetaData(rlp.Serializable):
+    fields = [
+        ('chainid', binary),
+        ('height', big_endian_int),
+        ('apphash', binary)
+    ]
+    def __init__(self, chainid, height, apphash):
+        super().__init__(chainid, height, apphash)
 
 class StateTrie(object):
     def __init__(self, trie):
@@ -46,15 +53,6 @@ class StateTrie(object):
 
     def revert(self, snapshot):
         return self.trie.revert(snapshot)
-
-class chainMetaData(rlp.Serializable):
-    fields = [
-        ('chainid', binary),
-        ('height', big_endian_int),
-        ('apphash', binary)
-    ]
-    def __init__(self, chainid, height, apphash):
-        super().__init__(chainid, height, apphash)
 
 class State(object):
     """

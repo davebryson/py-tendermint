@@ -110,6 +110,7 @@ def test_cache():
 
     if os.path.exists(dbfile):
         os.remove(dbfile)
+        
 def test_storage():
     alice = Key.generate()
     bob = Key.generate()

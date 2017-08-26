@@ -148,6 +148,7 @@ class VanillaApp(object):
         """ Called on the very first run of the application. Can be used to
         initialize genesis state
         """
+        # TODO: Move this to INIT_CHAIN - it's only called on genesis
         def decorator(f):
             self.__check_for_param(f,1)
             self._on_init = f
