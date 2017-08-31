@@ -214,6 +214,8 @@ class Storage(object):
         self._confirmed.commit()
         # save
         apphash = self.state.save()
-        # reset
+        # reset caches
         self._unconfirmed = StateCache(self.state)
+        self._confirmed = StateCache(self.state)
+        
         return apphash

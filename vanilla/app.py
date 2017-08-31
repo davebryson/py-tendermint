@@ -92,7 +92,7 @@ class VanillaApp(object):
     mock_test_state = None
 
     # Current version
-    version = "0.1"
+    version = "0.2"
 
     # Debug loglevel
     debug = True
@@ -116,14 +116,11 @@ class VanillaApp(object):
         # memory pool for consideration.  If not provided a function, all
         # transactions will be accepted.  The function expects a single param 'ctx'
         # that includes the current tx and the access to application state cache
-        self._validate_tx = None
+        #self._validate_tx = None
 
         # Handlers for actually processing a transaction and updating application
         # state. The maps a call string to a given function.
-        self._process_tx_handlers = {}
-
-        # Handlers that respond to querying the application state.
-        self._query_handlers = {}
+        self._tx_handlers = {}
 
         # State and caches
         self._storage = None
@@ -155,18 +152,6 @@ class VanillaApp(object):
             return f
         return decorator
 
-    def validate_transaction(self):
-        """Single validator for the app.  This is based on the idea that the
-        single Transaction can be handled by a single validator.  Used to 'check'
-        transaction to see whether or not they should be included in the mempool
-        or ignored.
-        """
-        def decorator(f):
-            self.__check_for_param(f,2)
-            self._validate_tx = f
-            return f
-        return decorator
-
     def on_transaction(self, rule):
         """ A decorator for functions that implement core business logic and
         can alter application state.  The provided function MUST accept a 2
@@ -177,7 +162,7 @@ class VanillaApp(object):
 
         def decorator(f):
             self.__check_for_param(f,2)
-            self._process_tx_handlers[str_to_bytes(rule)] = f
+            self._tx_handlers[str_to_bytes(rule)] = f
             return f
         return decorator
 
@@ -220,12 +205,6 @@ class VanillaApp(object):
         decoded_tx = self.__decode_incoming_tx(req.check_tx.tx)
         result = Result.ok()
 
-        if self._validate_tx:
-            result = self._validate_tx(decoded_tx, self._storage)
-            if not result:
-                result = Result.error(
-                    code=InternalError,
-                    log="Validate tx function didn't return a result")
 
         return to_response_check_tx(result.code, result.data, result.log)
 
@@ -233,8 +212,8 @@ class VanillaApp(object):
         tx = self.__decode_incoming_tx(req.deliver_tx.tx)
         result = Result.error(code=InternalError, log="No matching Tx handler")
 
-        if tx.call in self._process_tx_handlers:
-            result = self._process_tx_handlers[tx.call](tx, self._storage)
+        if tx.call in self._tx_handlers:
+            result = self._tx_handlers[tx.call](tx, self._storage)
             if not result:
                 result = Result.error(
                     code=InternalError,
