@@ -2,8 +2,8 @@ import pytest
 import rlp
 from rlp.sedes import big_endian_int
 from vanilla.app import VanillaApp
-from vanilla.abci.messages import *
-from vanilla.abci.application import Result
+from abci.messages import *
+from abci.application import Result
 from vanilla.transactions import Transaction
 
 """

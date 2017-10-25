@@ -4,7 +4,7 @@ import rlp
 from rlp.sedes import big_endian_int
 
 # only used here for testing
-from vanilla.abci.messages import *
+from abci.messages import *
 
 from vanilla import VanillaApp, Result, Transaction
 

@@ -1,20 +1,20 @@
 from setuptools import setup
 
 setup(
-    name='Vanilla',
-    version='0.1',
+    name='vanilla',
+    version='0.1.1',
     url='https://github.com/davebryson/vanilla',
-    license='BSD',
+    license='Apache 2.0',
     author='Dave Bryson',
-    author_email='debryson@gmail.com',
     description='A microframework for building blockchain applications with Tendermint',
-    packages=['vanilla', 'vanilla.abci'],
+    packages=['vanilla'],
     include_package_data=True,
     zip_safe=False,
     platforms='any',
     install_requires=[
-        'rlp>=0.6.0',
-        'trie>=0.2.4',
+        'abci==0.2.0',
+        'rlp==0.4.7',
+        'trie==0.2.4',
         'PyNaCl>=1.1.2',
         'pysha3>=1.0.2',
         'protobuf>=3.4.0',
