@@ -70,13 +70,17 @@ Vanilla hides some of the repetitive setup for you by providing:
 * Accounts
 * ed25519 Keys
 
-However, if you want to stay closer to ABCI *metal* you can still use the
-ABCI BaseApplication in the `abci` package to implement your logic directly. See
-the 'counter.py' app in the example folder.
+
+If you want to stay closer to the metal, check out the Tendermint Python ABCI library:
+https://github.com/davebryson/py-abci
+
 
 ### Requirements
  * Python 3.6.x
  * Tendermint (of course)
+
+ ### Install
+ * `python setup.py install` (pip install in the future)
 
 ### Try it out
   * Run Tendermint 'init':  `tendermint --home ~/.vanilla init`  Note we use a different home directory.

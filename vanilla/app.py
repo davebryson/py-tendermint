@@ -5,10 +5,10 @@ import rlp
 import json
 import os.path
 
-from .abci.wire import *
-from .abci.messages import *
-from .abci.types_pb2 import Request, ResponseEndBlock
-from .abci.application import Result
+from abci.wire import *
+from abci.messages import *
+from abci.types_pb2 import Request, ResponseEndBlock
+from abci.application import Result
 
 from .transactions import Transaction
 from .state import State, StateCache, Storage
