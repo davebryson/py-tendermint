@@ -5,22 +5,21 @@ import rlp
 import json
 import os.path
 
-from abci.wire import *
-from abci.messages import *
-from abci.types_pb2 import Request, ResponseEndBlock
-from abci.application import Result
+from abci import (
+    ABCIServer,
+    BaseApplication,
+    ResponseInfo,
+    ResponseQuery,
+    Result
+)
 
+from .keys import Key
 from .transactions import Transaction
 from .state import State, StateCache, Storage
 from .utils import str_to_bytes, int_to_big_endian, is_hex, from_hex
 
-import gevent
-import signal
-from gevent.event import Event
-from gevent.server import StreamServer
-
 def create_logger(app):
-    logger = logging.getLogger('vanilla.app')
+    logger = logging.getLogger('pytendermint.app')
     handler = logging.StreamHandler()
 
     logger.setLevel(logging.INFO)
@@ -85,7 +84,7 @@ def setup_app_state(root_dir):
 
     return (state, is_new)
 
-class VanillaApp(object):
+class TendermintApp(BaseApplication):
     # Enable for testing.  Uses in-memory (temp) storage and doesn't
     # start the server. 'mock_test_state' is for assigning abitrary
     # state for testing without using storage
@@ -122,6 +121,9 @@ class VanillaApp(object):
         # state. The maps a call string to a given function.
         self._tx_handlers = {}
 
+        # Query handlers to process custom queries
+        self._query_handlers = {}
+
         # State and caches
         self._storage = None
 
@@ -141,59 +143,45 @@ class VanillaApp(object):
                 "{} required param(s)".format(func.__name__, required_params)
             )
 
+    ## DECORATORS ##
     def on_initialize(self):
         """ Called on the very first run of the application. Can be used to
         initialize genesis state
         """
-        # TODO: Move this to INIT_CHAIN - it's only called on genesis
         def decorator(f):
             self.__check_for_param(f,1)
             self._on_init = f
             return f
         return decorator
 
-    def on_transaction(self, rule):
+    def on_transaction(self, tx_call_name):
         """ A decorator for functions that implement core business logic and
-        can alter application state.  The provided function MUST accept a 2
-        params 'tx' and 'storage'. The 'rule' must match the value set in Tx.call
+        can alter application state.  The provided function MUST accept 2
+        params 'tx' and 'db', and return True or False depending on the success
+        or failure of the logic.
+        The 'tx_call_name' must match the value set in Tx.call
         """
-        if not rule:
+        if not tx_call_name:
             raise TypeError("Missing call name for the Tx handler")
-
         def decorator(f):
             self.__check_for_param(f,2)
-            self._tx_handlers[str_to_bytes(rule)] = f
+            self._tx_handlers[str_to_bytes(tx_call_name)] = f
             return f
         return decorator
 
-    def __handle_abci_call(self,req_type, req):
-        """ Called from the server to handle ABCI requests
-        """
-        handler = getattr(self, req_type, self.no_match)
-        return handler(req)
+    def on_query(self, path):
+        if not path:
+            raise TypeError("Missing path name for the Query handler")
+        def decorator(f):
+            self.__check_for_param(f,2)
+            self._query_handlers[str_to_bytes(path)] = f
+            return f
+        return decorator
+
 
     #           * ABCI specific callbacks below. *
     # This is the required ABCI interface for interacting with a
     # Tendermint node
-    def echo(self, req):
-        return to_response_echo(req.echo.message)
-
-    def flush(self, req):
-        flush_resp = to_response_flush()
-        return to_response_flush()
-
-    def set_option(self, req):
-        result = "not implemented in vanilla - YAGNI"
-        return to_response_set_option(result)
-
-    def info(self, req):
-        result = ResponseInfo()
-        result.last_block_height = self._storage.state.last_block_height
-        result.last_block_app_hash = self._storage.state.last_block_hash
-        result.data = "Vanilla app v{}".format(self.version)
-        result.version = self.version
-        return to_response_info(result)
-
     def __decode_incoming_tx(self, rawtx):
         self.log.debug("Raw tx: {}".format(rawtx))
         if is_hex(rawtx):
@@ -201,121 +189,96 @@ class VanillaApp(object):
 
         return Transaction.decode(rawtx)
 
+    def set_option(self, req):
+        return "not implemented in pytendermint - YAGNI"
+
+    def init_chain(self, validators):
+        state, is_new = setup_app_state(self.rootdir)
+        self._storage = Storage(state)
+        if is_new and self._on_init:
+            self._on_init(self._storage.confirmed)
+            # Commit the data so it's available
+            self._storage.state.save()
+        self.log.debug("INIT_CHAIN: {}".format(validators))
+
+    def info(self, req):
+        result = ResponseInfo()
+        result.last_block_height = self._storage.state.last_block_height
+        result.last_block_app_hash = self._storage.state.last_block_hash
+        result.data = "pyTendermint app v{}".format(self.version)
+        result.version = self.version
+        return result
+
     def check_tx(self, req):
         decoded_tx = self.__decode_incoming_tx(req.check_tx.tx)
-        result = Result.ok()
+        # Get the account for the sender
+        # We use unconfirmed cache to allow multiple Tx per block
+        acct = self._storage.unconfirmed.get_account(decoded_tx.sender)
+        # Check the nonce
+        if acct.nonce != decoded_tx.nonce:
+            return Result.error(code=InternalError, log="Bad nonce")
+        # increment the account nonce
+        self._storage.unconfirmed.increment_nonce(decoded_tx.sender)
+        # verify the signature
+        if not Key.verify(acct.publickey(), decoded_tx.signature):
+            return Result.error(code=InternalError, log="Invalid Signature")
 
-
-        return to_response_check_tx(result.code, result.data, result.log)
+        return Result.ok()
 
     def deliver_tx(self, req):
         tx = self.__decode_incoming_tx(req.deliver_tx.tx)
-        result = Result.error(code=InternalError, log="No matching Tx handler")
+        if not tx.call in self._tx_handlers:
+            return Result.error(code=InternalError, log="No matching Tx handler")
 
-        if tx.call in self._tx_handlers:
-            result = self._tx_handlers[tx.call](tx, self._storage)
-            if not result:
-                result = Result.error(
-                    code=InternalError,
-                    log="Transaction handler did not return a result")
+        if not self._tx_handlers[tx.call](tx, self._storage.confirmed):
+            return Result.error(code=InternalError,log="Tx Handler returned false or None")
 
-        return to_response_deliver_tx(result.code, result.data, result.log)
-
-    def __format_query_data(self, value):
-        if isinstance(value, int):
-            return int_to_big_endian(value)
-        else:
-            return value
+        return Result.ok()
 
     def query(self, req):
-        self.log.debug("got the query {}".format(req))
-        # path
-        key = str_to_bytes(req.query.path)
-        searchvalue = req.query.data
+        path = str_to_bytes(req.query.path)
+        key = req.query.data
 
-        if key not in [b'/data', b'/check_nonce', b'/balance', b'/pubkey']:
-            self.log.error("bad path: {}".format(key))
-            resp = ResponseQuery(code=UnknownRequest, value=b'unrecognized path')
-            return to_response_query(resp)
-
-        if not searchvalue:
+        if not path:
+            self.log.error("Missing path value")
+            return ResponseQuery(code=Error, value=b'missing path value')
+        if not key:
             self.log.error("Missing key value")
-            resp = ResponseQuery(code=Error, value=b'missing key value')
-            return to_response_query(resp)
+            return ResponseQuery(code=Error, value=b'missing key value')
 
-        # Default response
-        resp = ResponseQuery(code=OK, value=b'')
+        # Format ints to big_endianss
+        def format_if_needed(value):
+            if isinstance(value, int):
+                return int_to_big_endian(value)
+            else:
+                return value
 
-        # Default path
-        if key == b'/data':
-            # Query the data store
-            data = self._storage.confirmed.get_data(searchvalue)
-            resp.value = self.__format_query_data(data)
-
-        # Used for validation
-        if key == b'/check_nonce':
+        # built in call for creating Txs
+        if path == b'/tx_nonce':
             # Query account in the unconfirmed cache
-            acct  = self._storage.unconfirmed.get_account(searchvalue)
-            resp.value = self.__format_query_data(acct.nonce)
+            acct  = self._storage.unconfirmed.get_account(key)
+            return ResponseQuery(code=OK, value=format_if_needed(acct.nonce))
 
-        if key == b'/balance':
-            acct = self._storage.confirmed.get_account(searchvalue)
-            resp.value = self.__format_query_data(acct.balance)
+        # Try the handler(s)
+        if path in self._query_handlers:
+            bits = self._query_handlers[path](key, self._storage.confirmed)
+            return ResponseQuery(code=OK, value=format_if_needed(bits))
 
-        if key == b'/pubkey':
-            acct = self._storage.confirmed.get_account(searchvalue)
-            resp.value = self.__format_query_data(acct.pubkey)
-
-        return to_response_query(resp)
+        errmsg = "No handler found for {}".format(path)
+        return ResponseQuery(code=Error, value=str_to_bytes(errmsg))
 
     def commit(self, req):
         apphash = self._storage.commit()
-        return to_response_commit(OK, apphash, '')
+        return Result.ok(data=h)
 
     def begin_block(self, req):
         self._storage.state.last_block_height = req.begin_block.header.height
-        #self.app.begin_block(req.begin_block.hash, req.begin_block.header)
-        return to_response_begin_block()
-
-    def end_block(self, req):
-        #result = self.app.end_block(req.end_block.height)
-        return to_response_end_block(ResponseEndBlock())
-
-    def init_chain(self, validators):
-        # TODO:  This is where setup app should be!!
-        # But it appears it's not being called by ABCI
-        self.log.debug("INIT_CHAIN: {}".format(validators))
-        return to_response_init_chain()
 
     def no_match(self, req):
-        return to_response_exception("Unknown request!")
-
-    # Server handler.  Receives message from tendermint and process accordingly
-    def __handle_connection(self, socket, address):
-        self.log.info('received connection from: {}:{}'.format(address[0], address[1]))
-        while True:
-            inbound = socket.recv(1024)
-            msg_length = len(inbound)
-            data = BytesIO(inbound)
-            if not data or msg_length == 0: return
-
-            while data.tell() < msg_length:
-                try:
-                    req, data_read  = read_message(data, Request)
-                    if data_read == 0: return
-
-                    req_type = req.WhichOneof("value")
-                    #self.log.debug('request type: {}'.format(req_type))
-                    result = self.__handle_abci_call(req_type, req)
-                    response = write_message(result)
-
-                    socket.sendall(response)
-                except TypeError as e:
-                    self.log.error(e)
-
-        socket.close()
+        return to_response_exception("Unknown ABCI request!")
 
     def mock_run(self):
+        # TODO: IS THIS USED ANYMORE?
         """ For testing without the abci server
         """
         self.log.info("running in test mode")
@@ -325,23 +288,7 @@ class VanillaApp(object):
             self._on_init(self._storage)
 
     def run(self):
-        """ Run the app in an ABCI enabled server
+        """ Run the app in the py-abci server
         """
-        state, is_new = setup_app_state(self.rootdir)
-        self._storage = Storage(state)
-        if is_new and self._on_init:
-            self._on_init(self._storage)
-
-        self.server = StreamServer(('0.0.0.0', self.port), handle=self.__handle_connection)
-        self.server.start()
-        self.log.info('VanillaApp started on port: {}'.format(self.port))
-
-        evt = Event()
-        gevent.signal(signal.SIGQUIT, evt.set)
-        gevent.signal(signal.SIGTERM, evt.set)
-        gevent.signal(signal.SIGINT, evt.set)
-        evt.wait()
-
-        self.log.info("shutting down the application")
-
-        self.server.stop()
+        server = ABCIServer(app=self)
+        server.run()

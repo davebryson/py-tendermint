@@ -2,9 +2,9 @@ import pytest
 import rlp
 from rlp.sedes import big_endian_int, binary
 
-from vanilla.transactions import Transaction
-from vanilla.keys import Key
-from vanilla.utils import to_hex, from_hex, is_hex
+from tendermint.transactions import Transaction
+from tendermint.keys import Key
+from tendermint.utils import to_hex, from_hex, is_hex
 
 
 class Params1(rlp.Serializable):

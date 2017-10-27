@@ -5,7 +5,7 @@ import base64
 
 from .utils import str_to_bytes, obj_to_str, bytes_to_str, is_string, to_hex, is_bytes
 
-AGENT='vanilla.blockchain/0.1'
+AGENT='py-tendermint/0.2'
 
 class RpcClient(object):
     """Tendermint RPC client: json-rpc requests over HTTP

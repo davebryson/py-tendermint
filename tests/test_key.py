@@ -2,8 +2,8 @@
 import pytest
 import nacl.bindings
 import nacl.exceptions
-from vanilla.keys import Key, create_address
-from vanilla.utils import from_hex, str_to_bytes, keccak
+from tendermint.keys import Key, create_address
+from tendermint.utils import from_hex, str_to_bytes, keccak
 
 def test_signing():
     bob = Key.generate()

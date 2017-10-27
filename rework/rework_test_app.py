@@ -1,7 +1,7 @@
 import pytest
 import rlp
 from rlp.sedes import big_endian_int
-from vanilla.app import VanillaApp
+from tendermint import TendermintApp
 from abci.messages import *
 from abci.application import Result
 from vanilla.transactions import Transaction
@@ -14,8 +14,7 @@ def test_setup():
 """
 
 def test_validate_tx_decorator():
-    app = VanillaApp("test")
-    #app.test_mode = True
+    app = TendermintApp("test")
 
     with pytest.raises(TypeError, message="The hello function is missing the 2 required param(s)"):
         @app.validate_transaction()
@@ -60,7 +59,7 @@ def test_validate_tx_decorator():
     assert(resp.check_tx.code == 1)
 
 def test_tx_handler_decorator():
-    app = VanillaApp("test")
+    app = TendermintApp("test")
     #app.test_mode = True
 
     with pytest.raises(TypeError, message="The hello function is missing the 2 required param(s)"):
