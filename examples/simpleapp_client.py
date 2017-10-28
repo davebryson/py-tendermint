@@ -18,7 +18,7 @@ def check_status():
 @cli.command()
 @click.argument('value')
 def send_count(value):
-    # TODO: These need to be signed with the proper tx
+    # TODO: BROKEN! The Tx must be signed with the correct nonce
     t = Transaction()
     t.call = 'counter'
     t.value = int(value)

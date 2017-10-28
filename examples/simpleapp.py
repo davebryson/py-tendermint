@@ -6,13 +6,13 @@ from tendermint.utils import (
     big_endian_to_int
 )
 
-# Some simple 'helpers' for the app
+# Some constants for the app
 DATA_KEY=b'current_count'
 INITIAL_COUNT = int_to_big_endian(1)
 
-# Setup the application. Pointing it to the same root dir used by Tendermint
-# in this example, we are using ~/.vanilla, which means we set a different
-# root_dir when running 'init':  'tendermint init --root ~/.vanilla'
+# Setup the application. Pointing it to the same root dir used by Tendermint.
+# In this example, we are using ~/.pytendermint, which means we set a different
+# root_dir when running 'init':  'tendermint init --home ~/.pytendermint'
 app = TendermintApp(home_dir('.pytendermint'))
 app.debug = True
 
@@ -22,7 +22,9 @@ app.debug = True
 def create_count(storage):
     storage.confirmed.put_data(DATA_KEY, INITIAL_COUNT)
 
-# Add more or more of these.  This is your apps business logic.
+# Add more or more of these.  This is your business logic to change state.
+# In this example, Txs with a 'call' of 'counter' will increment the count
+# in state.
 @app.on_transaction('counter')
 def increment_the_count(tx, db):
     stored_value = db.get_data(DATA_KEY)
@@ -31,11 +33,12 @@ def increment_the_count(tx, db):
     db.put_data(DATA_KEY,int_to_big_endian(v))
     return True
 
-# Calls to the path '/data' with a given key from the client
-# will call this handler
+# Queries to state.  Add 1 or more of these.
+# In this example, the a call to the path '/data' with a given key
+# from the client will call this handler
 @app.on_query('/data')
 def handle_nonce(key, db):
     return db.get_data(key)
 
-# Fire it up!
+# Fire it up - it'll connect to Tendermint
 app.run()
