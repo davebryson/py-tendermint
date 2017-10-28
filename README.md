@@ -2,16 +2,13 @@
 
 **A Python microframework for building blockchain applications with Tendermint**
 
-Inspired by Flask and the recent work on Tendermint's Quark SDK, Vanilla makes
-it easy to quickly prototype a Tendermint ABCI application.
+Inspired by Flask, py-tendermint makes it easy to quickly prototype a Tendermint ABCI application.
 
 **NOTE:** *this is still very alpha stuff* DO NOT USE IN PRODUCTION.
 
-Here's what a simple *stateful* counter app might look like:
-
 py-tendermint hides some of the repetitive setup for you by providing:
 * A Patricia Trie backed by persistent storage
-* Common Transaction model based on RLP
+* Common Transaction model based on RLP (from Ethereum)
 * RPC Client
 * Accounts
 * ed25519 Keys
@@ -28,8 +25,8 @@ https://github.com/davebryson/py-abci
  * `python setup.py install` (pip install in the future)
 
 ### Try it out
-  * Run Tendermint 'init':  `tendermint --home ~/.vanilla init`  Note we use a different home directory.
-  to keep all our blockchain apps seperate
-  * In another terminal, start the Vanilla app: `python examples/hellovanilla.py`
-  * Now start tendermint: `tendermint --home ~/.vanilla node`
-  * Finally, open another terminal and talk to the app: `python examples/hellovanilla_client.py`
+  * Run Tendermint 'init':  `tendermint --home ~/.pytendermint init`  Note we use a different home directory.
+  to keep all our blockchain apps seperated.
+  * In another terminal, start the app: `python examples/simpleapp.py`
+  * Now start tendermint: `tendermint --home ~/.pytendermint node`
+  * Finally, open another terminal and talk to the app: `python examples/simpleapp_client.py`
