@@ -13,15 +13,10 @@ py-tendermint hides some of the repetitive setup for you by providing:
 * Accounts
 * ed25519 Keys
 
-<<<<<<< HEAD
-If you want to stay closer to ABCI *metal*, you can use the
-ABCI BaseApplication by itself to create an application with the Tendermint Python ABCI library.
-See: https://github.com/davebryson/py-abci
-=======
+
 If you want to stay closer to the metal, check out the Tendermint Python ABCI library:
 https://github.com/davebryson/py-abci
 
->>>>>>> better_flow
 
 ### Requirements
  * Python 3.6.x
