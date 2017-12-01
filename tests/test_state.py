@@ -2,10 +2,10 @@ import os.path
 
 import pytest
 import rlp
-from vanilla.keys import Key
-from vanilla.accounts import Account
-from vanilla.state import State, StateCache, Storage
-from vanilla.utils import home_dir
+from tendermint.keys import Key
+from tendermint.accounts import Account
+from tendermint.state import State, StateCache, Storage
+from tendermint.utils import home_dir
 
 def test_state_storage():
     st,_ = State.load_state('')
@@ -110,7 +110,7 @@ def test_cache():
 
     if os.path.exists(dbfile):
         os.remove(dbfile)
-        
+
 def test_storage():
     alice = Key.generate()
     bob = Key.generate()

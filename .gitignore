@@ -2,6 +2,13 @@
 .cache/
 __pycache__
 *.pyc
+<<<<<<< HEAD
 vanilla.egg-info
 build/
 dist/
+=======
+tendermint.egg-info
+build/
+dist/
+TODO.txt
+>>>>>>> better_flow

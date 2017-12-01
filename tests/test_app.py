@@ -1,6 +1,8 @@
 import pytest
+
 import rlp
 from rlp.sedes import big_endian_int
+<<<<<<< HEAD
 from vanilla.app import VanillaApp
 from abci.messages import *
 from abci.application import Result
@@ -26,154 +28,100 @@ def test_validate_tx_decorator():
     t = Transaction()
     t.nonce = 1
     raw = t.encode()
+=======
+>>>>>>> better_flow
 
-    r = to_request_check_tx(raw)
-    resp = app.check_tx(r)
-    assert(resp.check_tx.code == 0)
+# only used here for testing
+from abci.messages import *
 
-    # Bad callback
-    @app.validate_transaction()
-    def hello(tx, storage):
-        pass
+from tendermint import TendermintApp, Transaction
 
-    r = to_request_check_tx(raw)
-    resp = app.check_tx(r)
-    assert(resp.check_tx.code == 1)
+from tendermint.keys import Key
+from tendermint.accounts import Account
+from tendermint.utils import big_endian_to_int, int_to_big_endian
 
-    # proper callback
-    @app.validate_transaction()
-    def hello(tx, storage):
-        if tx.nonce == 1:
-            return Result.ok()
-        return Result.error()
+bob = Key.generate()
+alice = Key.generate()
 
-    r = to_request_check_tx(raw)
-    resp = app.check_tx(r)
-    assert(resp.check_tx.code == 0)
+def test_app_api():
+    app = TendermintApp("")
 
+    @app.on_initialize()
+    def create_accts(db):
+        ba = Account.create_account(bob.publickey())
+        aa = Account.create_account(alice.publickey())
+        db.update_account(ba)
+        db.update_account(aa)
+        db.put_data(b'count', int_to_big_endian(10))
+        db.put_data(b'name', b'dave')
+
+    @app.on_query('/count')
+    def get_count(key, db):
+        return db.get_data(key)
+
+    # Run the app in mock mode (doesn't need tendermint)
+    app.mock_run()
+
+    # Run requests against API
+
+    # Note: /tx_nonce is built in
+    req = to_request_query(path='/tx_nonce', data=bob.address())
+    resp = app.query(req)
+    assert(resp.code == 0)
+    assert(0 == big_endian_to_int(resp.value))
+
+    req = to_request_query(path='/count', data=b'count')
+    resp = app.query(req)
+    assert(0 == resp.code)
+    assert(10 == big_endian_to_int(resp.value))
+
+    # Try some transactions
+
+    # Check tx First
+    # Missing sender - signature
     t = Transaction()
-    t.nonce = 2
     raw = t.encode()
-
     r = to_request_check_tx(raw)
     resp = app.check_tx(r)
-    assert(resp.check_tx.code == 1)
+    assert(resp.code == 1)
+    assert(resp.log == 'No Sender - is the Tx signed?')
 
-def test_tx_handler_decorator():
-    app = VanillaApp("test")
-    #app.test_mode = True
-
-    with pytest.raises(TypeError, message="The hello function is missing the 2 required param(s)"):
-        @app.on_transaction('transfer')
-        def hello(tx):
-            pass
-
-    with pytest.raises(TypeError, message="Missing call name for the Tx handler"):
-        @app.on_transaction()
-        def hello(tx):
-            pass
-
-    # Test it errors on mis-matched call names
+    # No account
+    n = Key.generate()
     t = Transaction()
-    t.call = 'CREATE'
+    t.sender = n.address()
     raw = t.encode()
+    r = to_request_check_tx(raw)
+    resp = app.check_tx(r)
+    assert(resp.code == 1)
+    assert(resp.log == 'Account not found')
 
-    @app.on_transaction("NO MATCH HERE")
-    def hello(tx, storage):
-        pass
-
-    r = to_request_deliver_tx(raw)
-    resp = app.deliver_tx(r)
-    assert(resp.deliver_tx.code == 1)
-    assert(resp.deliver_tx.log == "No matching Tx handler")
-
-
-    # test it errors if the handler doesn't return an result
-    @app.on_transaction('CREATE')
-    def hello(tx, storage):
-        pass
-
-    r = to_request_deliver_tx(raw)
-    resp = app.deliver_tx(r)
-    assert(resp.deliver_tx.code == 1)
-    assert(resp.deliver_tx.log == "Transaction handler did not return a result")
-
-
-    # does it actually work?
-    @app.on_transaction('CREATE')
-    def do_create(tx, storage):
-        return Result.ok(log="peachykeen")
-
-    r = to_request_deliver_tx(raw)
-    resp = app.deliver_tx(r)
-    assert(resp.deliver_tx.code == 0)
-    assert(resp.deliver_tx.log == "peachykeen")
-
-## Setup for test below
-
-def _delivertx(app, nonce,call,x, y=0):
+    # Bad nonce
     t = Transaction()
-    t.nonce = nonce
-    t.call = call
-    t.params = Params(x,y)
+    t.nonce = 10
+    raw = t.sign(bob).encode()
+    r = to_request_check_tx(raw)
+    resp = app.check_tx(r)
+    assert(resp.code == 1)
+    assert(resp.log == 'Bad nonce')
 
-    r = to_request_deliver_tx(t.encode())
-    return app.deliver_tx(r)
-
-def _checktx(app, nonce,call,x, y=0):
+    # Bad balance
     t = Transaction()
-    t.nonce = nonce
-    t.call = call
-    t.params = Params(x,y)
+    t.nonce = 0
+    t.value = 100
+    raw = t.sign(alice).encode()
+    r = to_request_check_tx(raw)
+    resp = app.check_tx(r)
+    assert(resp.code == 1)
+    assert(resp.log == 'Insufficient balance for transfer')
 
-    r = to_request_check_tx(t.encode())
-    return app.check_tx(r)
+    # Finally good check transaction
+    t = Transaction()
+    t.nonce = 1
+    raw = t.sign(alice).encode()
+    r = to_request_check_tx(raw)
+    resp = app.check_tx(r)
+    assert(resp.code == 0)
 
-class Params(rlp.Serializable):
-    fields = [
-        ('x', big_endian_int),
-        ('y', big_endian_int)
-    ]
-    def __init__(self, x, y):
-        super().__init__(x,y)
 
-def test_quasi_flow():
-    BADNONCE = 3
-
-    app = VanillaApp("test")
-    #app.test_mode = True
-    app.mock_test_state = 0
-
-    @app.validate_transaction()
-    def hello(tx, storage):
-        if tx.nonce == app.mock_test_state:
-            app.mock_test_state += 1
-            return Result.ok()
-        return Result.error(code=BADNONCE)
-
-    @app.on_transaction('add')
-    def add_values(tx, storage):
-        p = tx.decode_params(Params)
-        value = p.x + p.y
-        return Result.ok(data=str(value))
-
-    @app.on_transaction('sub')
-    def sub_values(tx, storage):
-        p = tx.decode_params(Params)
-        value = p.x - p.y
-        return Result.ok(data=str(value))
-
-    r = _checktx(app, app.mock_test_state,'add',1)
-    assert(r.check_tx.code == 0)
-    r = _checktx(app, app.mock_test_state,'add',1)
-    assert(r.check_tx.code == 0)
-    r = _checktx(app, 10,'add',1)
-    assert(r.check_tx.code == BADNONCE)
-
-    r = _delivertx(app, app.mock_test_state,'add',1,2)
-    assert(r.deliver_tx.code == 0)
-    assert(r.deliver_tx.data == b'3')
-
-    r = _delivertx(app, app.mock_test_state,'sub',10,9)
-    assert(r.deliver_tx.code == 0)
-    assert(r.deliver_tx.data == b'1')
+    # Test deliver Tx

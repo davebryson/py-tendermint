@@ -53,20 +53,19 @@ class Transaction(rlp.Serializable):
 
     def encode(self):
         if self.params:
-            self.params = rlp.encode(self.params, sedes=self.params.__class__)
+            self.params = rlp.encode(self.params)
         return rlp.encode(self, sedes=Transaction)
 
     @classmethod
     def decode(cls, bits):
-        outer = rlp.decode(bits, sedes=cls)
-        return outer
+        return rlp.decode(bits, sedes=cls)
 
-    def decode_params(self, dataclz):
+    def decode_params(self, dataclz=None):
         if self.params:
             try:
                 return rlp.decode(self.params, sedes=dataclz)
             except:
-                raise Exception("Can deserialize params. Are you decoding with the right class")
+                raise Exception("Can't deserialize params. Are you decoding with the right class")
         # Just being explicit
         return None
 

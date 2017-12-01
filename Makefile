@@ -1,16 +1,9 @@
-
-protobuf:
-	protoc -I=abci --python_out=abci vanilla/abci/types.proto
-
-abci-test:
-	sh ./compat-test.sh
-
-rte:
-	rm -Rf ~/.vanilla
-	tendermint --home ~/.vanilla init
+reset:
+	rm -Rf ~/.pyvanilla
+	tendermint --home ~/.pyvanilla init
 
 run-test-node:
-	tendermint --home ~/.vanilla node
+	tendermint --home ~/.pyvanilla node
 
 dev-mode:
 	pip install --editable .

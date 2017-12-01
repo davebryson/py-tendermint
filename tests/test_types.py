@@ -1,7 +1,7 @@
 import rlp
 
-from vanilla.accounts import Account
-from vanilla.keys import Key
+from tendermint.accounts import Account
+from tendermint.keys import Key
 
 def test_account():
     bob = Key.generate()

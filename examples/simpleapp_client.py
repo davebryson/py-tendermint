@@ -1,8 +1,8 @@
 
 import click
-from vanilla import Transaction
-from vanilla.client import RpcClient
-from vanilla.utils import from_hex
+from tendermint import Transaction
+from tendermint.client import RpcClient
+from tendermint.utils import from_hex
 
 rpc = RpcClient()
 
@@ -18,6 +18,7 @@ def check_status():
 @cli.command()
 @click.argument('value')
 def send_count(value):
+    # TODO: BROKEN! The Tx must be signed with the correct nonce
     t = Transaction()
     t.call = 'counter'
     t.value = int(value)

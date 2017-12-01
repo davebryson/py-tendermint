@@ -1,7 +1,7 @@
 import os
 
-from vanilla.db import VanillaDB
-from vanilla.utils import home_dir
+from tendermint.db import VanillaDB
+from tendermint.utils import home_dir
 
 def test_database():
     dbfile = home_dir('temp', 'test.db')
