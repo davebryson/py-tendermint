@@ -2,34 +2,6 @@ import pytest
 
 import rlp
 from rlp.sedes import big_endian_int
-<<<<<<< HEAD
-from vanilla.app import VanillaApp
-from abci.messages import *
-from abci.application import Result
-from vanilla.transactions import Transaction
-
-"""
-def test_setup():
-    home = home_dir('.bad')
-    with pytest.raises(Exception, message="Cannot find app directory: ".format(home)):
-        setup_app(home)
-"""
-
-def test_validate_tx_decorator():
-    app = VanillaApp("test")
-    #app.test_mode = True
-
-    with pytest.raises(TypeError, message="The hello function is missing the 2 required param(s)"):
-        @app.validate_transaction()
-        def hello():
-            pass
-
-    # Without any validation check - it just passes
-    t = Transaction()
-    t.nonce = 1
-    raw = t.encode()
-=======
->>>>>>> better_flow
 
 # only used here for testing
 from abci.messages import *

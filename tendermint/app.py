@@ -5,13 +5,6 @@ import rlp
 import json
 import os.path
 
-<<<<<<< HEAD:vanilla/app.py
-from abci.wire import *
-from abci.messages import *
-from abci.types_pb2 import Request, ResponseEndBlock
-from abci.application import Result
-
-=======
 from abci import (
     ABCIServer,
     BaseApplication,
@@ -22,7 +15,6 @@ from abci import (
 from abci.types_pb2 import OK, InternalError
 
 from .keys import Key
->>>>>>> better_flow:tendermint/app.py
 from .transactions import Transaction
 from .state import State, StateCache, Storage
 from .utils import str_to_bytes, int_to_big_endian, is_hex, from_hex
