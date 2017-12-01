@@ -74,7 +74,7 @@ class State(object):
         """
 
     @classmethod
-    def load_state(cls, dbfile):
+    def load_state(cls, dbfile=None):
         """ Create or load State.
         returns: (State, is_new) where 'is_new' is T|F indicating whether
         this the first run.

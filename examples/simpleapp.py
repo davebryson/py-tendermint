@@ -6,6 +6,8 @@ from tendermint.utils import (
     big_endian_to_int
 )
 
+## NOTE: THIS IS BROKEN - needs updated
+
 # Some constants for the app
 DATA_KEY=b'current_count'
 INITIAL_COUNT = int_to_big_endian(1)
@@ -19,8 +21,8 @@ app.debug = True
 # Called only once on the first initialization of the application
 # this is a good place to put stuff in state like default accounts, storage, etc...
 @app.on_initialize()
-def create_count(storage):
-    storage.confirmed.put_data(DATA_KEY, INITIAL_COUNT)
+def create_count(db):
+    db.put_data(DATA_KEY, INITIAL_COUNT)
 
 # Add more or more of these.  This is your business logic to change state.
 # In this example, Txs with a 'call' of 'counter' will increment the count

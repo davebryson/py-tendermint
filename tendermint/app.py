@@ -12,6 +12,7 @@ from abci import (
     ResponseQuery,
     Result
 )
+from abci.types_pb2 import OK, InternalError
 
 from .keys import Key
 from .transactions import Transaction
@@ -47,7 +48,6 @@ def create_logger(app):
     return logger
 
 def setup_app_state(root_dir):
-
     if not os.path.exists(root_dir):
         msg = "Cannot find tendermint directory {}".format(root_dir)
         raise FileNotFoundError(msg)
@@ -193,15 +193,21 @@ class TendermintApp(BaseApplication):
         return "not implemented in pytendermint - YAGNI"
 
     def init_chain(self, validators):
+        self.log.debug("init_chain validators: {}".format(validators))
+        # First run create state
         state, is_new = setup_app_state(self.rootdir)
         self._storage = Storage(state)
         if is_new and self._on_init:
             self._on_init(self._storage.confirmed)
             # Commit the data so it's available
             self._storage.state.save()
-        self.log.debug("INIT_CHAIN: {}".format(validators))
 
     def info(self, req):
+        # Load state
+        if not self._storage:
+            state, _ = setup_app_state(self.rootdir)
+            self._storage = Storage(state)
+
         result = ResponseInfo()
         result.last_block_height = self._storage.state.last_block_height
         result.last_block_app_hash = self._storage.state.last_block_hash
@@ -210,18 +216,33 @@ class TendermintApp(BaseApplication):
         return result
 
     def check_tx(self, req):
+        # Decode Tx
         decoded_tx = self.__decode_incoming_tx(req.check_tx.tx)
+
         # Get the account for the sender
         # We use unconfirmed cache to allow multiple Tx per block
+        if not decoded_tx.sender:
+            return Result.error(code=InternalError, log="No Sender - is the Tx signed?")
+
         acct = self._storage.unconfirmed.get_account(decoded_tx.sender)
+        if not acct:
+            return Result.error(code=InternalError, log="Account not found")
+
         # Check the nonce
         if acct.nonce != decoded_tx.nonce:
             return Result.error(code=InternalError, log="Bad nonce")
+
         # increment the account nonce
         self._storage.unconfirmed.increment_nonce(decoded_tx.sender)
+
         # verify the signature
-        if not Key.verify(acct.publickey(), decoded_tx.signature):
+        if not Key.verify(acct.pubkey, decoded_tx.signature):
             return Result.error(code=InternalError, log="Invalid Signature")
+
+        # Check if this is a value transfer, if so make sure sender has an
+        # acct balance > tx.value
+        if decoded_tx.value > 0 and acct.balance < decoded_tx.value:
+            return Result.error(code=InternalError, log="Insufficient balance for transfer")
 
         return Result.ok()
 
@@ -241,10 +262,10 @@ class TendermintApp(BaseApplication):
 
         if not path:
             self.log.error("Missing path value")
-            return ResponseQuery(code=Error, value=b'missing path value')
+            return ResponseQuery(code=InternalError, value=b'missing path value')
         if not key:
             self.log.error("Missing key value")
-            return ResponseQuery(code=Error, value=b'missing key value')
+            return ResponseQuery(code=InternalError, value=b'missing key value')
 
         # Format ints to big_endianss
         def format_if_needed(value):
@@ -256,7 +277,7 @@ class TendermintApp(BaseApplication):
         # built in call for creating Txs
         if path == b'/tx_nonce':
             # Query account in the unconfirmed cache
-            acct  = self._storage.unconfirmed.get_account(key)
+            acct = self._storage.unconfirmed.get_account(key)
             return ResponseQuery(code=OK, value=format_if_needed(acct.nonce))
 
         # Try the handler(s)
@@ -265,7 +286,7 @@ class TendermintApp(BaseApplication):
             return ResponseQuery(code=OK, value=format_if_needed(bits))
 
         errmsg = "No handler found for {}".format(path)
-        return ResponseQuery(code=Error, value=str_to_bytes(errmsg))
+        return ResponseQuery(code=InternalError, value=str_to_bytes(errmsg))
 
     def commit(self, req):
         apphash = self._storage.commit()
@@ -278,14 +299,14 @@ class TendermintApp(BaseApplication):
         return to_response_exception("Unknown ABCI request!")
 
     def mock_run(self):
-        # TODO: IS THIS USED ANYMORE?
-        """ For testing without the abci server
+        """ For testing without the server
         """
         self.log.info("running in test mode")
-        state, _  = State.load_state('')
+        state, _  = State.load_state()
         self._storage = Storage(state)
         if self._on_init:
-            self._on_init(self._storage)
+            self._on_init(self._storage.confirmed)
+            self._storage.commit()
 
     def run(self):
         """ Run the app in the py-abci server
