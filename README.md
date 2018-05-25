@@ -4,7 +4,7 @@
 
 Inspired by Flask, py-tendermint makes it easy to quickly prototype a Tendermint ABCI application.
 
-**NOTE:** *this is still very alpha stuff* DO NOT USE IN PRODUCTION.
+**NOTE: the current version is broken due to ABCI changes** For the interim, see py-abci
 
 py-tendermint hides some of the repetitive setup for you by providing:
 * A Patricia Trie backed by persistent storage
